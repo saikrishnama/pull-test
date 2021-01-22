@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: httpecho
+  name: httpecho
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpecho
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: httpecho
+    spec:
+      containers:
+      - args:
+        - -text
+        - Hello World
+        image: hashicorp/http-echo
+        name: http-echo
+        ports:
+        - containerPort: 5678
+        resources: {}
+status: {}
+
+kubectl expose deployment httpecho --port=8080 --target-port=5678 --type=NodePort
