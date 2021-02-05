@@ -5,9 +5,9 @@ pipeline {
 	
 		string(name: 'Version', defaultValue: '1.0.0-SNAPSHOT', description: 'Specify the version.')
 	}
-environment {
-    def DEPLOYMENT_DIR = 'pull-test'
-}
+// environment {
+//     def DEPLOYMENT_DIR = 'pull-test'
+// }
     stages {
         stage('SCM:Checkout') {
             steps {
@@ -35,7 +35,6 @@ def envSetup() {
 }
 def RunTerraformInit() {
     echo '[Jenkinsfile] Initilizing Terr.'
-   // dir("${DEPLOYMENT_DIR}")
     {
         sh """
             terraform init
@@ -45,8 +44,8 @@ def RunTerraformInit() {
 }
 def TerraformPlan() {
     echo '[Jenkinsfile] Initilizing terraform Plan.'
-    //dir("${DEPLOYMENT_DIR}")
-    {
+    // dir("${DEPLOYMENT_DIR}")
+     {
         sh """
             terraform -out=plan.out -no-color"
           
@@ -57,8 +56,7 @@ def TerraformPlan() {
 
 def promtionBuild() {
     echo '[Jenkinsfile] Initilizing terraform Plan.'
-    //dir("${DEPLOYMENT_DIR}")
-    {
+    dir("${DEPLOYMENT_DIR}") {
         sh """
             terraform -out=plan.out -no-color"
           
