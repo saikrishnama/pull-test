@@ -76,13 +76,7 @@ def approvalbuild() {
      //   beforeInput True
         // datas.flash.envts.contai
    // }
-    input {
-        message "Deploy into the Env?"
-        ok "Yes."
-    }
-    	parameters {
-	
-		string(name: 'ApprovarName', defaultValue: '', description: 'Approvar Confirmation')
-	}
+   input message: 'Proceed or Abort', submitter: 'shaikch'
+   
 
 }
