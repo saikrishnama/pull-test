@@ -46,7 +46,8 @@ def TerraformPlan() {
     // dir("${DEPLOYMENT_DIR}")
      
         sh """
-            terraform plan -out=plan.out -no-color"
+	    echo "print"
+           # terraform plan -out=plan.out -no-color"
           
         """
     }
