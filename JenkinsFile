@@ -1,10 +1,13 @@
-def DEPLOYMENT_DIR = 'pull-test'
+
 pipeline {
     agent any
 	parameters {
 	
 		string(name: 'Version', defaultValue: '1.0.0-SNAPSHOT', description: 'Specify the version.')
 	}
+environment {
+    def DEPLOYMENT_DIR = 'pull-test'
+}
     stages {
         stage('SCM:Checkout') {
             steps {
