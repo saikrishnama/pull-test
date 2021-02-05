@@ -72,10 +72,10 @@ def TerraformApply() {
 }
 
 def approvalbuild() {
-    when {
-        beforeInput True
+   // when {
+     //   beforeInput True
         // datas.flash.envts.contai
-    }
+   // }
     input {
         message "Deploy into the Env?"
         ok "Yes."
