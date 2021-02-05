@@ -35,17 +35,16 @@ def envSetup() {
 }
 def RunTerraformInit() {
     echo '[Jenkinsfile] Initilizing Terr.'
-    {
-        sh """
+            sh """
             terraform init
           
         """
-    }
+    
 }
 def TerraformPlan() {
     echo '[Jenkinsfile] Initilizing terraform Plan.'
     // dir("${DEPLOYMENT_DIR}")
-     {
+     
         sh """
             terraform -out=plan.out -no-color"
           
@@ -56,10 +55,10 @@ def TerraformPlan() {
 
 def promtionBuild() {
     echo '[Jenkinsfile] Initilizing terraform Plan.'
-    dir("${DEPLOYMENT_DIR}") {
+    
         sh """
             terraform -out=plan.out -no-color"
           
         """
-    }
+    
 }
