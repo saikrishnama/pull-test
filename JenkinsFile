@@ -1,0 +1,25 @@
+pipeline {
+    agent any
+	parameters {
+	
+		string(name: 'Version', defaultValue: '1.0.0-SNAPSHOT', description: 'Specify the version.')
+	}
+    stages {
+        stage('SCM:Checkout') {
+            steps {
+                echo 'Hello World-1'
+                envSetup()
+            }
+        }
+	stage('Example-2') {
+            steps {
+                echo 'Hello World-2'
+		println "Version: ${params.Version}"
+            }
+        }
+    }
+}
+def envSetup() {
+    deleteDir()     // delete jenkins working dir
+    checkout scm    // clones the git repository
+}
