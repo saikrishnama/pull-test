@@ -1,3 +1,4 @@
+def DEPLOYMENT_DIR = 'pull-test'
 pipeline {
     agent any
 	parameters {
@@ -11,9 +12,15 @@ pipeline {
                 envSetup()
             }
         }
-	stage('Example-2') {
+	stage('RunTerraformInit') {
             steps {
-                echo 'Hello World-2'
+                RunTerraformInit()
+		println "Version: ${params.Version}"
+            }
+        }
+        	stage('TerraformPlan') {
+            steps {
+                TerraformPlan()
 		println "Version: ${params.Version}"
             }
         }
@@ -22,4 +29,33 @@ pipeline {
 def envSetup() {
     deleteDir()     // delete jenkins working dir
     checkout scm    // clones the git repository
+}
+def RunTerraformInit() {
+    echo '[Jenkinsfile] Initilizing Terr.'
+    dir("${DEPLOYMENT_DIR}") {
+        sh """
+            terraform init
+          
+        """
+    }
+}
+def TerraformPlan() {
+    echo '[Jenkinsfile] Initilizing terraform Plan.'
+    dir("${DEPLOYMENT_DIR}") {
+        sh """
+            terraform -out=plan.out -no-color"
+          
+        """
+    }
+}
+
+
+def promtionBuild() {
+    echo '[Jenkinsfile] Initilizing terraform Plan.'
+    dir("${DEPLOYMENT_DIR}") {
+        sh """
+            terraform -out=plan.out -no-color"
+          
+        """
+    }
 }
