@@ -42,11 +42,11 @@ def RunTerraformInit() {
     
 }
 def TerraformPlan() {
-    echo '[Jenkinsfile] Initilizing terraform Plan.'
+    echo '[Jenkinsfile] Initilizing terraform Plan progress.'
     // dir("${DEPLOYMENT_DIR}")
      
         sh """
-            terraform -out=plan.out -no-color"
+            terraform plan -out=plan.out -no-color"
           
         """
     }
@@ -54,10 +54,10 @@ def TerraformPlan() {
 
 
 def promtionBuild() {
-    echo '[Jenkinsfile] Initilizing terraform Plan.'
+    echo '[Jenkinsfile] Initilizing terraform Plan in progress.'
     
         sh """
-            terraform -out=plan.out -no-color"
+            #terraform -out=plan.out -no-color"
           
         """
     
