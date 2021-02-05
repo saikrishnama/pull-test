@@ -27,6 +27,13 @@ pipeline {
 		println "Version: ${params.Version}"
             }
         }
+        stage('TerraformApply') {
+            steps {
+                approvalbuild()
+                TerraformApply()
+		println "Version: ${params.Version}"
+            }
+        }
     }
 }
 def envSetup() {
@@ -54,12 +61,28 @@ def TerraformPlan() {
 
 
 
-def promtionBuild() {
-    echo '[Jenkinsfile] Initilizing terraform Plan in progress.'
+def TerraformApply() {
+    echo '[Jenkinsfile] Initilizing terraform apply in progress.'
     
         sh """
             #terraform -out=plan.out -no-color"
           
         """
     
+}
+
+def approvalbuild() {
+    when {
+        beforeInput True
+        // datas.flash.envts.contai
+    }
+    input {
+        message "Deploy into the Env?"
+        ok "Yes."
+    }
+    	parameters {
+	
+		string(name: 'ApprovarName', defaultValue: '', description: 'Approvar Confirmation')
+	}
+
 }
