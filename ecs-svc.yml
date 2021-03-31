@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS-Service 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: ECS Service Related Details 
+      Parameters:
+        - ClusterName  
+        - DesiredContainerCount
+        - taskdefinition
+        - ServiceName
+        - ContainerPort  
+    - Label:
+        default: ALB Details 
+      Parameters:
+        - ECSTargetGroupArn
+    - Label:
+        default: Application AutoScalling Details 
+      Parameters:
+        - CPUPolicyTargetValue
+        - MemoryPolicyTargetValue
+    - Label:
+        default: Common Environment Details 
+      Parameters:
+        - EnvironmentName
+        - ApplicationName
+Parameters:
+  ClusterName:
+    Type: String
+    Default: ""
+    Description: Name of the ECS Cluster
+  DesiredContainerCount:
+    Default: 1
+    Type: Number
+    Description: Number of Container would like launch
+  ContainerPort:
+    Default: 80
+    Type: Number
+    Description: ECS Service Container Port
+  taskdefinition:
+    Default: String
+    Type: String
+    Description: Name of the ECS Task Defaination
+  ServiceName: 
+    Default: ServiceName
+    Type: String
+  ECSTargetGroupArn:
+    Default: ''
+    Type: String
+    Description: need to Pass existing ECS ALb target Group Arn
+  CPUPolicyTargetValue:
+    Description: The target value for the metric in ECS AutoScaling policy. Example 75 percentage.
+    Type: String 
+  MemoryPolicyTargetValue:
+    Description: The target value for the metric in ECS AutoScaling policy. Example 75 percentage.
+    Type: String 
+  ApplicationName:
+    Description: Name of the Application Name
+    Type: String
+    Default: ""
+  EnvironmentName:
+    Description: Type of Env
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+Mappings:
+  Envmap:
+    development:
+      type: dev
+    staging:
+      type: stage
+    production:
+      type: prod
+Resources:
+############################Service ##############
+  ECSServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 
+      - ${ApplicationName}-${Env}-${AWS::Region}-ecsservicerole
+      - { Env: !FindInMap [Envmap, !Ref EnvironmentName, type] }
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+      - PolicyName: ecs-service
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action: ['elasticloadbalancing:DeregisterInstancesFromLoadBalancer', 'elasticloadbalancing:DeregisterTargets',
+              'elasticloadbalancing:Describe*', 'elasticloadbalancing:RegisterInstancesWithLoadBalancer',
+              'elasticloadbalancing:RegisterTargets', 'ec2:Describe*', 'ec2:AuthorizeSecurityGroupIngress']
+            Resource: '*'
+  AutoscalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub
+        - ${ApplicationName}-${Env}-${AWS::Region}-ecs-asg-role
+        - { Env: !FindInMap [Envmap, !Ref EnvironmentName, type] }      
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [application-autoscaling.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+      - PolicyName: !Sub 
+        - ${ApplicationName}-${Env}-${AWS::Region}-ecs-asg
+        - { Env: !FindInMap [Envmap, !Ref EnvironmentName, type] }      
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action: ['application-autoscaling:*', 'cloudwatch:DescribeAlarms', 'cloudwatch:PutMetricAlarm',
+              'ecs:DescribeServices', 'ecs:UpdateService']
+            Resource: '*'
+  ApiService:
+    DependsOn: ECSServiceRole
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref 'ClusterName'
+      DesiredCount: !Ref DesiredContainerCount
+      LoadBalancers:
+        - ContainerName: !Ref ApplicationName
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref 'ECSTargetGroupArn'
+      Role: !Ref 'ECSServiceRole'
+      TaskDefinition: !Ref taskdefinition 
+      ServiceName: !Ref ServiceName
+  ServiceScalingTarget:
+    DependsOn: ApiService
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 2
+      MinCapacity: 1
+      ResourceId: !Join ['', [service/, !Ref 'ClusterName', /, !GetAtt [ApiService, Name]]]
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${AutoscalingRole}'
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+  ServiceScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: stepPolicy
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref 'ServiceScalingTarget'
+      StepScalingPolicyConfiguration:
+        AdjustmentType: PercentChangeInCapacity
+        Cooldown: 60
+        MetricAggregationType: Average
+        StepAdjustments:
+        - MetricIntervalLowerBound: 0
+          ScalingAdjustment: 200
+  CPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: cputarget-tracking-scaling-policy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ServiceScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: !Ref CPUPolicyTargetValue 
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 300
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+  MemoryScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: memorytarget-tracking-scaling-policy
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ServiceScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: !Ref MemoryPolicyTargetValue
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 300
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+ 
