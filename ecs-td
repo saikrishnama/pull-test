@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECS-Task Defination
+Parameters:
+  TaskDefinitionName:
+    Default: "test"
+    Type: String
+  logging:
+    Description: Select any of the logging options
+    Type: String
+    Default: 'Cloudwatch-No'
+    AllowedValues:
+      - Cloudwatch-No
+      - Cloudwatch
+  ApplicationName:
+    Type: String
+    Default: "mcs-poc-td"
+  ContainerCPU:
+    Type: Number
+    Default: 1024
+  ContainerImage:
+    Type: String
+    Default: httpd
+  ContainerMemory:
+    Type: Number
+    Default: 256
+  ContainerPort:
+    Type: Number
+    Default: 80
+  RetentionInDays:
+    Type: Number
+    Default: 14
+    AllowedValues:
+      - 30
+      - 40
+      - 14
+  EnvironmentName:
+    Description: Type of Env
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+  CustomerName:
+    Type: String
+  CreateAPISVC:
+    Type: String
+    Default: no
+    AllowedValues:
+      - yes
+      - no
+  ClusterName:
+    Type: String
+    Default: "mcs-poc"
+    Description: "Cluster Name requred only When would like to create a service"
+Mappings:
+  Envmap:
+    development:
+      type: dev
+    staging:
+      type: stage
+    production:
+      type: prod
+Conditions:
+  cloudwatch: !Equals [ !Ref logging, "Cloudwatch" ]
+  CreateAPISVC:  !Equals [!Ref CreateAPISVC, yes]
+
+Resources:
+  CloudwatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: cloudwatch
+    Properties:
+      LogGroupName: !Join ['-', [ecsloggroup, !Ref 'AWS::StackName']]
+      RetentionInDays: !Ref RetentionInDays
+
+  taskdefinition:
+    DependsOn: TaskExecutionRole
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref  TaskDefinitionName
+      TaskRoleArn: !Ref TaskExecutionRole
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      ContainerDefinitions:
+        - Name: !Ref ApplicationName
+          Cpu: !Ref ContainerCPU
+          Essential: 'true'
+          Image: !Ref ContainerImage
+          Memory: !Ref ContainerMemory
+          LogConfiguration: !If 
+            - cloudwatch
+            - LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref 'CloudwatchLogsGroup'
+                awslogs-region: !Ref 'AWS::Region'
+                awslogs-stream-prefix: !Ref ApplicationName
+            - !Ref 'AWS::NoValue'    
+          PortMappings:
+          - ContainerPort: !Ref ContainerPort
+  APIECSService: 
+    Condition: CreateAPISVC  
+    Type: AWS::ECS::Service
+    Properties: 
+      Cluster: 
+        !Ref ClusterName
+      SchedulingStrategy: DAEMON
+      TaskDefinition: 
+        !Ref taskdefinition
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 
+      - ${ApplicationName}-${Env}-ecsec2-taskexerole-${AWS::Region}
+      - { Env: !FindInMap [Envmap, !Ref EnvironmentName, type] }
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs-tasks.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy     
+      Tags: 
+        - Key: Name
+          Value:  !Sub 
+            - ${ApplicationName}-${Env}-${AWS::Region}-ecsservicerole
+            - { Env: !FindInMap [Envmap, !Ref EnvironmentName, type] }
+        - Key: ApplicationName
+          Value: !Sub ${ApplicationName}
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: platform
+          Value: 
