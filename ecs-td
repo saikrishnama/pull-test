@@ -1,9 +1,56 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: ECS-Task Defination
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: ECS Task Defaination and Container   Details 
+      Parameters:
+        - TaskDefinitionName  
+        - EcrRepoName
+        - ImageTag
+        - ContainerCPU
+        - ContainerMemory
+        - ContainerPort  
+    - Label:
+        default: Container Logging   Details
+      Parameters:
+        - logging
+        - RetentionInDays
+    - Label:
+        default: Common Environment Details 
+      Parameters:
+        - EnvironmentName
+        - ApplicationName
 Parameters:
   TaskDefinitionName:
-    Default: "test"
+    Default: ""
     Type: String
+    Description: Name of the ECS TaskDefinationName
+  EcrRepoName:
+    Type: String
+    Default: ""
+    Description: Name of the ECR Repo
+
+  ImageTag:
+    Type: String
+    Default: ""
+    Description: ECS Repo Image Tag version
+
+  ContainerCPU:
+    Type: Number
+    Default: 1024
+    Description: Container CPU Limit Value
+  ContainerMemory:
+    Description: Container Memory Limit Value
+    Type: Number
+    Default: 256
+
+  ContainerPort:
+    Description: ECS Container Port Info
+    Type: Number
+    Default: 80
+
   logging:
     Description: Select any of the logging options
     Type: String
@@ -11,28 +58,19 @@ Parameters:
     AllowedValues:
       - Cloudwatch-No
       - Cloudwatch
-  ApplicationName:
-    Type: String
-    Default: "mcs-poc-td"
-  ContainerCPU:
-    Type: Number
-    Default: 1024
-  ContainerImage:
-    Type: String
-    Default: httpd
-  ContainerMemory:
-    Type: Number
-    Default: 256
-  ContainerPort:
-    Type: Number
-    Default: 80
+
   RetentionInDays:
+    Description: Number of days would like to keep the Container logs in Cloudwatch
     Type: Number
     Default: 14
     AllowedValues:
       - 30
       - 40
       - 14
+  ApplicationName:
+    Description: Name of the Application Name
+    Type: String
+    Default: "mcs-poc-td"
   EnvironmentName:
     Description: Type of Env
     Type: String
@@ -41,18 +79,16 @@ Parameters:
       - development
       - staging
       - production
-  CustomerName:
-    Type: String
-  CreateAPISVC:
-    Type: String
-    Default: no
-    AllowedValues:
-      - yes
-      - no
-  ClusterName:
-    Type: String
-    Default: "mcs-poc"
-    Description: "Cluster Name requred only When would like to create a service"
+  # CreateAPISVC:
+  #   Type: String
+  #   Default: no
+  #   AllowedValues:
+  #     - yes
+  #     - no
+  # ClusterName:
+  #   Type: String
+  #   Default: "mcs-poc"
+  #   Description: "Cluster Name requred only When would like to create a service"
 Mappings:
   Envmap:
     development:
@@ -63,7 +99,6 @@ Mappings:
       type: prod
 Conditions:
   cloudwatch: !Equals [ !Ref logging, "Cloudwatch" ]
-  CreateAPISVC:  !Equals [!Ref CreateAPISVC, yes]
 
 Resources:
   CloudwatchLogsGroup:
@@ -78,13 +113,13 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       Family: !Ref  TaskDefinitionName
-      TaskRoleArn: !Ref TaskExecutionRole
-      ExecutionRoleArn: !Ref TaskExecutionRole
+      TaskRoleArn: !GetAtt TaskExecutionRole.Arn 
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn 
       ContainerDefinitions:
         - Name: !Ref ApplicationName
           Cpu: !Ref ContainerCPU
           Essential: 'true'
-          Image: !Ref ContainerImage
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepoName}:${ImageTag}
           Memory: !Ref ContainerMemory
           LogConfiguration: !If 
             - cloudwatch
@@ -96,16 +131,6 @@ Resources:
             - !Ref 'AWS::NoValue'    
           PortMappings:
           - ContainerPort: !Ref ContainerPort
-  APIECSService: 
-    Condition: CreateAPISVC  
-    Type: AWS::ECS::Service
-    Properties: 
-      Cluster: 
-        !Ref ClusterName
-      SchedulingStrategy: DAEMON
-      TaskDefinition: 
-        !Ref taskdefinition
-
   TaskExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -131,4 +156,4 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentName
         - Key: platform
-          Value: 
+          Value: mcs
